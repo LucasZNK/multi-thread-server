@@ -51,33 +51,24 @@ fn connection_manager(mut stream: TcpStream) {
 }
 
 fn response_builder(buffer: &[u8], get: &[u8]) -> String {
-    if buffer.starts_with(get) {
-        match fs::read_to_string("index.html") {
-            Ok(file) => {
-                format!(
-                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-                    file.len(),
-                    file
-                )
-            }
-            Err(e) => {
-                println!("Error loading file, {}", e);
-                "".to_string()
-            }
-        }
+    let (status_line, file_name) = if buffer.starts_with(get) {
+        ("HTTP/1.1 200 OK", "index.html")
     } else {
-        match fs::read_to_string("404.html") {
-            Ok(file) => {
-                format!(
-                    "HTTP/1.1 404 NOT FOUND\r\nContent-Length: {}\r\n\r\n{}",
-                    file.len(),
-                    file
-                )
-            }
-            Err(e) => {
-                println!("Error loading file, {}", e);
-                "".to_string()
-            }
+        ("HTTP/1.1 404 NOT FOUND", "404.html")
+    };
+
+    match fs::read_to_string(file_name) {
+        Ok(content) => {
+            format!(
+                "{}\r\nContent-Length: {}\r\n\r\n{}",
+                status_line,
+                content.len(),
+                content
+            )
+        }
+        Err(e) => {
+            println!("Error loading file, {}", e);
+            "".to_string()
         }
     }
 }
