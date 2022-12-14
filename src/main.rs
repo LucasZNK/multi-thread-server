@@ -36,28 +36,48 @@ fn connection_manager(mut stream: TcpStream) {
     // TODO: Modify to allow dinamyc sizes
     // TODO: Manage the unrwap calls to handle the errors;
     let mut buffer = [0; 1024];
+    let get = b"GET / HTTP/1.1\r\n";
 
     match stream.read(&mut buffer) {
-        Ok(_) => {
-            println!("Request Incoming")
-        }
+        Ok(_) => println!("Request Incoming"),
         Err(e) => {
             println!("Error:{}", e)
         }
     }
 
-    match fs::read_to_string("index.html") {
-        Ok(file) => {
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-                file.len(),
-                file
-            );
-            stream.write(response.as_bytes()).unwrap();
-            stream.flush().unwrap()
+    let response = response_builder(&buffer, get);
+    stream.write(response.as_bytes()).unwrap();
+    stream.flush().unwrap()
+}
+
+fn response_builder(buffer: &[u8], get: &[u8]) -> String {
+    if buffer.starts_with(get) {
+        match fs::read_to_string("index.html") {
+            Ok(file) => {
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
+                    file.len(),
+                    file
+                )
+            }
+            Err(e) => {
+                println!("Error loading file, {}", e);
+                "".to_string()
+            }
         }
-        Err(e) => {
-            println!("Error loading file, {}", e);
+    } else {
+        match fs::read_to_string("404.html") {
+            Ok(file) => {
+                format!(
+                    "HTTP/1.1 404 NOT FOUND\r\nContent-Length: {}\r\n\r\n{}",
+                    file.len(),
+                    file
+                )
+            }
+            Err(e) => {
+                println!("Error loading file, {}", e);
+                "".to_string()
+            }
         }
     }
 }
