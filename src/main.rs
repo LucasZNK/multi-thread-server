@@ -39,17 +39,25 @@ fn connection_manager(mut stream: TcpStream) {
 
     match stream.read(&mut buffer) {
         Ok(_) => {
-            let contents = fs::read_to_string("index.html").unwrap();
+            println!("Request Incoming")
+        }
+        Err(e) => {
+            println!("Error:{}", e)
+        }
+    }
+
+    match fs::read_to_string("index.html") {
+        Ok(file) => {
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{}",
-                contents.len(),
-                contents
+                file.len(),
+                file
             );
             stream.write(response.as_bytes()).unwrap();
             stream.flush().unwrap()
         }
         Err(e) => {
-            println!("Error:{}", e)
+            println!("Error loading file, {}", e);
         }
     }
 }
