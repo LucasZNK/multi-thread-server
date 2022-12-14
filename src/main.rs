@@ -12,5 +12,16 @@ fn main() {
         }
     };
 
+    for stream in listener.incoming() {
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(e) => {
+                println!("Failed to bind to address: {}", e);
+                return;
+            }
+        };
+        println!("Connection established!");
+    }
+
     println!("Hello, world!");
 }
