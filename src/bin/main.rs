@@ -19,7 +19,8 @@ fn main() {
         }
     };
 
-    let thread_pool = ThreadPool::new(4);
+    // handle this error
+    let thread_pool = ThreadPool::new(4).unwrap();
 
     // Accept incoming connections
     for stream in listener.incoming() {
