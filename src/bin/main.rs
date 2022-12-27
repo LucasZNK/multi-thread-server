@@ -19,7 +19,7 @@ fn main() {
         }
     };
 
-    let pool = ThreadPool::new(4);
+    let thread_pool = ThreadPool::new(4);
 
     // Accept incoming connections
     for stream in listener.incoming() {
@@ -30,18 +30,19 @@ fn main() {
                 return;
             }
         };
-        pool.execute(|| {
+        thread_pool.execute(|| {
             connection_manager(stream);
         });
     }
 }
 
 fn connection_manager(mut stream: TcpStream) {
-    // TODO: Modify to allow dinamyc sizes
-    // TODO: Manage the unrwap calls to handle the errors;
+    // TODO: Modify to allow dynamic sizes
+    // TODO: Manage the unwrap calls to handle the errors;
     let mut buffer = [0; 1024];
     let get = b"GET / HTTP/1.1\r\n";
 
+    // Read incoming request
     match stream.read(&mut buffer) {
         Ok(_) => println!("Request Incoming"),
         Err(e) => {
@@ -57,6 +58,7 @@ fn connection_manager(mut stream: TcpStream) {
 fn response_builder(buffer: &[u8], get: &[u8]) -> String {
     let sleep = b"GET /sleep HTTP/1.1\r\n";
 
+    // Determine status line and file name based on request
     let (status_line, file_name) = if buffer.starts_with(get) {
         ("HTTP/1.1 200 OK", "index.html")
     } else if buffer.starts_with(sleep) {
@@ -66,6 +68,7 @@ fn response_builder(buffer: &[u8], get: &[u8]) -> String {
         ("HTTP/1.1 404 NOT FOUND", "404.html")
     };
 
+    // Read file and build response string
     match fs::read_to_string(file_name) {
         Ok(content) => {
             format!(
