@@ -24,15 +24,33 @@ impl Worker {
         id: usize,
         receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
     ) -> Result<Worker, std::io::Error> {
-        let thread = Builder::new().spawn(|| {
-            receiver;
+        let thread = Builder::new().spawn(move || loop {
+            let job = match receiver.lock() {
+                Ok(guard) => match guard.recv() {
+                    Ok(job) => job,
+                    Err(error) => {
+                        //TODO: Add logic to handle error instead of log it.
+                        eprintln!("An error occurred in the job: {}", error);
+                        return;
+                    }
+                },
+                Err(error) => {
+                    //TODO: Add logic to handle error instead of log it.
+                    eprintln!("An error occurred in the guard: {}", error);
+
+                    return;
+                }
+            };
+            println!("Worker {id} got a job; executing.");
+
+            job();
         })?;
 
         Ok(Worker { id, thread })
     }
 }
 
-struct Job;
+type Job = Box<dyn FnOnce() + Send + 'static>;
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
@@ -70,5 +88,8 @@ impl ThreadPool {
     where
         F: FnOnce() + Send + 'static,
     {
+        let job = Box::new(f);
+
+        self.sender.send(job).unwrap();
     }
 }
