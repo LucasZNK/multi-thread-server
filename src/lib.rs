@@ -16,7 +16,7 @@ impl std::fmt::Display for PoolCreationError {
 
 struct Worker {
     id: usize,
-    thread: JoinHandle<()>,
+    thread: Option<thread::JoinHandle<()>>,
 }
 
 impl Worker {
@@ -24,7 +24,7 @@ impl Worker {
         id: usize,
         receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
     ) -> Result<Worker, std::io::Error> {
-        let thread = Builder::new().spawn(move || loop {
+        let thread = Builder::new().spawn(move || {
             let job = match receiver.lock() {
                 Ok(guard) => match guard.recv() {
                     Ok(job) => job,
@@ -46,7 +46,10 @@ impl Worker {
             job();
         })?;
 
-        Ok(Worker { id, thread })
+        Ok(Worker {
+            id,
+            thread: Some(thread),
+        })
     }
 }
 
@@ -90,6 +93,32 @@ impl ThreadPool {
     {
         let job = Box::new(f);
 
-        self.sender.send(job).unwrap();
+        match self.sender.send(job) {
+            Ok(possibly_received) => possibly_received,
+            Err(error) => eprintln!(
+                "An error ocurred, the receiver don't get the message  {:?}",
+                error
+            ),
+        }
+    }
+}
+
+impl Drop for ThreadPool {
+    fn drop(&mut self) {
+        // Iterate through all of the workers in the thread-pool
+        for worker in &mut self.workers {
+            println!("Shutting down worker {}", worker.id);
+            // Check if the worker has a thread that it is running
+            if let Some(thread) = worker.thread.take() {
+                // If the worker has a thread, finish the work and try to shut down.
+                match thread.join() {
+                    Ok(t) => t,
+                    Err(error) => eprintln!(
+                        "An error ocurred shutting down the worker, error:  {:?}",
+                        error
+                    ),
+                }
+            }
+        }
     }
 }
