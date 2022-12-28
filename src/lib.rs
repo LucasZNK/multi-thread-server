@@ -1,4 +1,5 @@
 use std::io::Error;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread::{self, Builder, JoinHandle};
 /// An error that can occur when creating a `ThreadPool`.
 #[derive(Debug)]
@@ -19,15 +20,25 @@ struct Worker {
 }
 
 impl Worker {
-    pub fn new(id: usize) -> Result<Worker, std::io::Error> {
-        let thread = Builder::new().spawn(|| {})?;
+    pub fn new(
+        id: usize,
+        receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
+    ) -> Result<Worker, std::io::Error> {
+        let thread = Builder::new().spawn(|| {
+            receiver;
+        })?;
 
         Ok(Worker { id, thread })
     }
 }
+
+struct Job;
+
 pub struct ThreadPool {
     workers: Vec<Worker>,
+    sender: mpsc::Sender<Job>,
 }
+
 impl ThreadPool {
     /// Creates a new `ThreadPool` with the specified number of worker threads.
     /// # Errors
@@ -37,19 +48,22 @@ impl ThreadPool {
             return Err(PoolCreationError::InvalidSize);
         }
 
+        let (sender, receiver) = mpsc::channel();
+        let receiver = Arc::new(Mutex::new(receiver));
+
         let mut workers = Vec::with_capacity(size);
 
         for id in 0..size {
-            let worker = match Worker::new(id) {
+            let worker = match Worker::new(id, Arc::clone(&receiver)) {
                 Ok(worker) => worker,
-                Err(error) => {
+                Err(_) => {
                     return Err(PoolCreationError::InvalidSize);
                 }
             };
             workers.push(worker);
         }
 
-        Ok(ThreadPool { workers })
+        Ok(ThreadPool { workers, sender })
     }
 
     pub fn execute<F>(&self, f: F)
@@ -58,11 +72,3 @@ impl ThreadPool {
     {
     }
 }
-
-// pub fn build(size: usize) -> Result<ThreadPool, PoolCreationError> {
-//     if size == 0 {
-//         return Err(PoolCreationError::InvalidSize);
-//     }
-
-//     Ok(ThreadPool::new(size))
-// }
