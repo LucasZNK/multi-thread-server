@@ -23,3 +23,6 @@ Adding support for more HTTP methods (e.g. POST, PUT, DELETE)
 Adding support for dynamic content (e.g. through the use of templates or a server-side scripting language)
 Improving error handling and logging
 Adding support for TLS/SSL to secure connections
+Error handling
+Dynamic setup of threads based on the hardware available
+Get hardware available
