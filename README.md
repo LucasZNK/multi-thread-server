@@ -1,4 +1,4 @@
-# Web Server
+# Multi Thread Web Server
 This is a simple web server that can handle HTTP requests and serve static files. It is designed to illustrate the concepts of thread pools, and how they can be used to improve the performance of a web server.
 
 # How it works
