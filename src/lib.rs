@@ -24,7 +24,7 @@ impl Worker {
         id: usize,
         receiver: Arc<Mutex<mpsc::Receiver<Job>>>,
     ) -> Result<Worker, std::io::Error> {
-        let thread = Builder::new().spawn(move || {
+        let thread = Builder::new().spawn(move || loop {
             let job = match receiver.lock() {
                 Ok(guard) => match guard.recv() {
                     Ok(job) => job,
@@ -57,7 +57,7 @@ type Job = Box<dyn FnOnce() + Send + 'static>;
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Job>,
+    sender: Option<mpsc::Sender<Job>>,
 }
 
 impl ThreadPool {
@@ -84,7 +84,10 @@ impl ThreadPool {
             workers.push(worker);
         }
 
-        Ok(ThreadPool { workers, sender })
+        Ok(ThreadPool {
+            workers,
+            sender: Some(sender),
+        })
     }
 
     pub fn execute<F>(&self, f: F)
@@ -93,7 +96,7 @@ impl ThreadPool {
     {
         let job = Box::new(f);
 
-        match self.sender.send(job) {
+        match self.sender.as_ref().unwrap().send(job) {
             Ok(possibly_received) => possibly_received,
             Err(error) => eprintln!(
                 "An error ocurred, the receiver don't get the message  {:?}",
@@ -105,6 +108,8 @@ impl ThreadPool {
 
 impl Drop for ThreadPool {
     fn drop(&mut self) {
+        drop(self.sender.take());
+
         // Iterate through all of the workers in the thread-pool
         for worker in &mut self.workers {
             println!("Shutting down worker {}", worker.id);
